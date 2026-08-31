@@ -1,4 +1,5 @@
 import './style.css';
+import { sfxCueHit, sfxBallClack, sfxCushion, sfxPocket, sfxVictory, sfxClick } from './audio.js';
 
 // =============================================
 //  KAWAII 8-BALL POOL 🎱✨
@@ -161,10 +162,10 @@ class Ball {
     const top = BORDER + this.r;
     const bottom = BORDER + TABLE_H - this.r;
 
-    if (this.x < left) { this.x = left; this.vx *= -0.8; this.triggerSquish(0); }
-    if (this.x > right) { this.x = right; this.vx *= -0.8; this.triggerSquish(0); }
-    if (this.y < top) { this.y = top; this.vy *= -0.8; this.triggerSquish(Math.PI / 2); }
-    if (this.y > bottom) { this.y = bottom; this.vy *= -0.8; this.triggerSquish(Math.PI / 2); }
+    if (this.x < left) { this.x = left; this.vx *= -0.8; this.triggerSquish(0); sfxCushion(); }
+    if (this.x > right) { this.x = right; this.vx *= -0.8; this.triggerSquish(0); sfxCushion(); }
+    if (this.y < top) { this.y = top; this.vy *= -0.8; this.triggerSquish(Math.PI / 2); sfxCushion(); }
+    if (this.y > bottom) { this.y = bottom; this.vy *= -0.8; this.triggerSquish(Math.PI / 2); sfxCushion(); }
   }
 
   triggerSquish(dir) {
@@ -590,6 +591,9 @@ function resolveCollision(a, b) {
     a.triggerSquish(collisionAngle);
     b.triggerSquish(collisionAngle + Math.PI);
 
+    // Cute clack sound!
+    sfxBallClack(impulse);
+
     // Sparkles on collision!
     const cx = (a.x + b.x) / 2;
     const cy = (a.y + b.y) / 2;
@@ -608,6 +612,7 @@ function checkPockets(ball) {
       ball.pocketed = true;
       ball.vx = 0;
       ball.vy = 0;
+      sfxPocket();
 
       // Hearts burst!
       for (let i = 0; i < 12; i++) {
@@ -863,6 +868,7 @@ function handleTurnEnd() {
     // Check 8-ball pocketed
     const eightPocketed = pocketedNums.find(b => b.is8Ball);
     if (eightPocketed) {
+      sfxVictory();
       // Check if player has cleared their balls
       const playerBallType = playerTypes[currentPlayer];
       const remaining = balls.filter(b => !b.pocketed && !b.is8Ball && b.num !== 0 &&
@@ -961,6 +967,7 @@ canvas.addEventListener('mouseup', () => {
   const power = Math.min(dist / 200, 1);
 
   if (power > 0.03 && cueBall && !cueBall.pocketed) {
+    sfxCueHit(power);
     const angle = Math.atan2(dy, dx);
     const maxSpeed = 18;
     cueBall.vx = Math.cos(angle) * power * maxSpeed;
@@ -991,6 +998,7 @@ canvas.addEventListener('touchend', (e) => {
 
 // Play Again
 playAgainBtn.addEventListener('click', () => {
+  sfxClick();
   gameOver = false;
   currentPlayer = 1;
   playerTypes = { 1: null, 2: null };
