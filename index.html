@@ -5,10 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kawaii 8-Ball Pool 🎱✨</title>
     <meta name="description" content="The cutest 8-ball pool game ever made!" />
-    <script type="module" crossorigin src="/kawaii-8ball-pool/assets/index-Bs91g5mk.js"></script>
-    <link rel="stylesheet" crossorigin href="/kawaii-8ball-pool/assets/index-7TAp-gSX.css">
+    <script type="module" crossorigin src="/kawaii-8ball-pool/assets/index-LyoANQlD.js"></script>
+    <link rel="stylesheet" crossorigin href="/kawaii-8ball-pool/assets/index-CL01waYc.css">
   </head>
   <body>
+    <!-- TOP NAVIGATION BAR -->
+    <nav class="top-nav">
+      <a href="https://marcuscaiado.github.io/marcus-arcade/" class="nav-btn arcade-link">🕹️ Arcade Hub</a>
+    </nav>
+
     <div id="ui">
       <h1 class="game-title">✨ Kawaii Pool ✨</h1>
       <div class="player-info">
@@ -25,7 +30,13 @@
     </div>
     <canvas id="game-canvas"></canvas>
     <div id="message"></div>
-    <button id="play-again-btn">Play Again! 🔄</button>
+    
+    <!-- END ACTIONS -->
+    <div id="end-actions-container" style="display: none;">
+      <button id="play-again-btn" class="action-btn btn-primary">Play Again 🔄</button>
+      <a href="https://marcuscaiado.github.io/marcus-arcade/" class="action-btn btn-arcade">Arcade Hub 🕹️</a>
+    </div>
+
     <div id="aim-hint">Click & drag on the white ball to shoot! 🎯</div>
   </body>
 </html>
