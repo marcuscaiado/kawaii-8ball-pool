@@ -10,6 +10,7 @@ const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 const messageEl = document.getElementById('message');
 const playAgainBtn = document.getElementById('play-again-btn');
+const endActionsContainer = document.getElementById('end-actions-container');
 const aimHintEl = document.getElementById('aim-hint');
 const p1Panel = document.getElementById('p1-panel');
 const p2Panel = document.getElementById('p2-panel');
@@ -882,7 +883,7 @@ function handleTurnEnd() {
         showMessage(`Player ${winner} Wins! 🎉✨`);
       }
       gameOver = true;
-      playAgainBtn.style.display = 'block';
+      if (endActionsContainer) endActionsContainer.style.display = 'flex';
       return;
     }
 
@@ -1004,7 +1005,7 @@ playAgainBtn.addEventListener('click', () => {
   playerTypes = { 1: null, 2: null };
   messageEl.style.display = 'none';
   messageEl.className = '';
-  playAgainBtn.style.display = 'none';
+  if (endActionsContainer) endActionsContainer.style.display = 'none';
   aimHintEl.style.display = 'block';
   updatePlayerUI();
   initBalls();
