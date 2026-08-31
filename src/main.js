@@ -884,6 +884,11 @@ function handleTurnEnd() {
       }
       gameOver = true;
       if (endActionsContainer) endActionsContainer.style.display = 'flex';
+      try {
+        if (window.ArcadeLeaderboard) {
+          window.ArcadeLeaderboard.submitScore('kawaii-8ball-pool', 800);
+        }
+      } catch(e){}
       return;
     }
 
