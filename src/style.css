@@ -256,3 +256,55 @@ body, html {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.85; }
 }
+
+/* ============ MOBILE / GALAXY A55 RESPONSIVE ============ */
+@media (max-width: 768px) {
+  .top-nav {
+    top: 10px;
+    right: 10px;
+  }
+  .nav-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+  .game-title {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  .player-info {
+    gap: 8px;
+  }
+  .player-panel {
+    min-width: 85px;
+    padding: 4px 10px;
+    border-radius: 10px;
+  }
+  .player-label {
+    font-size: 11px;
+  }
+  .player-type {
+    font-size: 9px;
+  }
+  .vs-badge {
+    font-size: 12px;
+  }
+  #message {
+    font-size: 32px;
+  }
+  #end-actions-container {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 90%;
+  }
+  .action-btn {
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 12px;
+  }
+  #aim-hint {
+    font-size: 12px;
+    bottom: 8px;
+  }
+}
