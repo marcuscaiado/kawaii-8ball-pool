@@ -127,9 +127,9 @@ class Ball {
   }
 
   update() {
-    // Friction
-    this.vx *= 0.985;
-    this.vy *= 0.985;
+    // Friction (smooth velvet roll)
+    this.vx *= 0.988;
+    this.vy *= 0.988;
 
     // Stop if very slow
     if (!this.isMoving) {
@@ -609,7 +609,7 @@ function checkPockets(ball) {
     const dx = ball.x - pocket.x;
     const dy = ball.y - pocket.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < POCKET_R + ball.r * 0.3) {
+    if (dist < POCKET_R + ball.r * 0.75) {
       ball.pocketed = true;
       ball.vx = 0;
       ball.vy = 0;
@@ -750,19 +750,49 @@ function drawCueStick() {
 
   const angle = Math.atan2(dy, dx);
 
-  // Direction line (dotted, showing where ball will go)
+  // Direction line (laser guideline across the table)
   ctx.save();
-  ctx.setLineDash([3, 5]);
-  ctx.strokeStyle = `rgba(255,255,255,${0.3 + power * 0.3})`;
-  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 5]);
+  ctx.strokeStyle = `rgba(255,255,255,${0.45 + power * 0.35})`;
+  ctx.lineWidth = 1.5;
+
+  // Raycast to find nearest ball intersection along the aim vector
+  let maxAimDist = 550;
+  let targetBall = null;
+  const cosA = Math.cos(angle);
+  const sinA = Math.sin(angle);
+
+  for (const b of balls) {
+    if (b === cueBall || b.pocketed) continue;
+    // Project b onto ray
+    const rx = b.x - cueBall.x;
+    const ry = b.y - cueBall.y;
+    const proj = rx * cosA + ry * sinA;
+    if (proj > 0 && proj < maxAimDist) {
+      const perpDist = Math.abs(rx * sinA - ry * cosA);
+      if (perpDist < b.r + cueBall.r) {
+        maxAimDist = proj - Math.sqrt(Math.max(0, Math.pow(b.r + cueBall.r, 2) - perpDist * perpDist));
+        targetBall = b;
+      }
+    }
+  }
+
+  const endX = cueBall.x + cosA * maxAimDist;
+  const endY = cueBall.y + sinA * maxAimDist;
+
   ctx.beginPath();
   ctx.moveTo(cueBall.x, cueBall.y);
-  ctx.lineTo(
-    cueBall.x + Math.cos(angle) * (60 + power * 100),
-    cueBall.y + Math.sin(angle) * (60 + power * 100)
-  );
+  ctx.lineTo(endX, endY);
   ctx.stroke();
+
+  // Draw Ghost Cue Ball at impact point
   ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(endX, endY, cueBall.r, 0, Math.PI * 2);
+  ctx.stroke();
+
   ctx.restore();
 
   // Cue stick itself (behind the ball)
