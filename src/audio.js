@@ -70,6 +70,9 @@ function playNoise(duration, volume = 0.08, delay = 0) {
 
 /** Cue stick hits the cue ball */
 export function sfxCueHit(power = 0.5) {
+  if (window.DopamineSynth) {
+    window.DopamineSynth.playThud(0.18 + power * 0.16);
+  }
   const vol = 0.08 + power * 0.15;
   playNoise(0.08, vol);
   playTone(380 + power * 150, 0.06, 'triangle', vol * 1.3);
@@ -78,6 +81,9 @@ export function sfxCueHit(power = 0.5) {
 
 /** Cute ball-on-ball clack with pleasant pitch variation */
 export function sfxBallClack(speed = 1) {
+  if (window.DopamineSynth) {
+    window.DopamineSynth.playTap(Math.min(0.24, 0.08 + speed * 0.03), 1.15);
+  }
   const vol = Math.min(0.04 + speed * 0.02, 0.16);
   const randomPitch = 600 + Math.random() * 300;
   playTone(randomPitch, 0.05, 'triangle', vol);
@@ -87,28 +93,32 @@ export function sfxBallClack(speed = 1) {
 
 /** Ball bounces off the wooden cushion rail */
 export function sfxCushion() {
+  if (window.DopamineSynth) {
+    window.DopamineSynth.playThud(0.15);
+  }
   playTone(180, 0.08, 'sine', 0.08);
   playNoise(0.04, 0.04);
 }
 
 /** Ball drops into a pocket — cheerful chime + heart drop sound */
 export function sfxPocket() {
-  playTone(587.33, 0.15, 'sine', 0.12); // D5
-  playTone(880, 0.2, 'sine', 0.14, 0.06); // A5
-  playTone(1174.66, 0.25, 'sine', 0.1, 0.12); // D6
+  if (window.DopamineSynth) {
+    window.DopamineSynth.playScore(0.25);
+  } else {
+    playTone(587.33, 0.15, 'sine', 0.12); // D5
+    playTone(880, 0.2, 'sine', 0.14, 0.06); // A5
+    playTone(1174.66, 0.25, 'sine', 0.1, 0.12); // D6
+  }
 }
 
-/** Victory celebratory jingle */
+/** Victory fanfare */
 export function sfxVictory() {
-  const melody = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
-  melody.forEach((freq, i) => {
-    playTone(freq, 0.22, 'sine', 0.12, i * 0.12);
-    playTone(freq * 1.5, 0.2, 'triangle', 0.05, i * 0.12);
-  });
-  playTone(1318.51, 0.4, 'sine', 0.1, 0.5);
+  if (window.DopamineSynth) window.DopamineSynth.playWin();
+  if (window.DopamineJuice) window.DopamineJuice.explodeConfetti(window.innerWidth / 2, window.innerHeight * 0.4, 75);
 }
 
 /** UI button click */
 export function sfxClick() {
-  playTone(900, 0.04, 'sine', 0.08);
+  if (window.DopamineSynth) window.DopamineSynth.playTap(0.15, 1.4);
+  else playTone(800, 0.04, 'triangle', 0.1);
 }

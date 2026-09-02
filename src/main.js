@@ -614,6 +614,12 @@ function checkPockets(ball) {
       ball.vx = 0;
       ball.vy = 0;
       sfxPocket();
+      if (window.DopamineJuice) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = rect.left + (pocket.x / canvas.width) * rect.width;
+        const sy = rect.top + (pocket.y / canvas.height) * rect.height;
+        window.DopamineJuice.spawnScore(sx, sy, `POCKET! 🎱✨`, 2);
+      }
 
       // Hearts burst!
       for (let i = 0; i < 12; i++) {
