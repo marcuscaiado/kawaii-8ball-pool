@@ -522,6 +522,7 @@ function darkenColor(hex, amt) {
 //  INITIALIZE BALLS (triangle rack)
 // =============================================
 function initBalls() {
+  if (window.ArcadeDifficulty) ArcadeDifficulty.reset();
   balls = [];
   sparkles = [];
   hearts = [];
@@ -609,7 +610,10 @@ function checkPockets(ball) {
     const dx = ball.x - pocket.x;
     const dy = ball.y - pocket.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < POCKET_R + ball.r * 0.75) {
+    const poolScore = (player1Score || 0) * 100 + ballsPocketedThisTurn.length * 50;
+    const ddaMult = window.ArcadeDifficulty ? ArcadeDifficulty.getMultiplier(poolScore, 1000, 1.8) : 1.0;
+    const pocketFactor = Math.max(0.48, 0.75 - (ddaMult - 1.0) * 0.2);
+    if (dist < POCKET_R + ball.r * pocketFactor) {
       ball.pocketed = true;
       ball.vx = 0;
       ball.vy = 0;
@@ -763,7 +767,9 @@ function drawCueStick() {
   ctx.lineWidth = 1.5;
 
   // Raycast to find nearest ball intersection along the aim vector
-  let maxAimDist = 550;
+  const poolScore = (player1Score || 0) * 100 + ballsPocketedThisTurn.length * 50;
+  const ddaMult = window.ArcadeDifficulty ? ArcadeDifficulty.getMultiplier(poolScore, 1000, 1.8) : 1.0;
+  let maxAimDist = Math.max(320, 550 - (ddaMult - 1.0) * 140);
   let targetBall = null;
   const cosA = Math.cos(angle);
   const sinA = Math.sin(angle);
