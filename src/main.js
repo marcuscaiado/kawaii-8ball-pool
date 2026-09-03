@@ -977,43 +977,63 @@ function showMessage(text) {
 }
 
 // =============================================
-//  INPUT
 // =============================================
-canvas.addEventListener('mousedown', (e) => {
-  if (gameOver || turnActive) return;
+//  INPUT (Pointer Capture & Window-Level Drag Tracking)
+// =============================================
+function getCanvasCoords(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
-  const mx = (e.clientX - rect.left) * scaleX;
-  const my = (e.clientY - rect.top) * scaleY;
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  };
+}
+
+function handleStart(clientX, clientY, pointerId = null) {
+  if (gameOver || turnActive) return;
+  const pos = getCanvasCoords(clientX, clientY);
 
   // Check if clicking near cue ball
   if (cueBall && !cueBall.pocketed) {
-    const dx = mx - cueBall.x;
-    const dy = my - cueBall.y;
-    if (Math.sqrt(dx * dx + dy * dy) < cueBall.r + 20) {
+    const dx = pos.x - cueBall.x;
+    const dy = pos.y - cueBall.y;
+    // Generous grab radius so it's easy to grab on mobile & desktop
+    if (Math.sqrt(dx * dx + dy * dy) < cueBall.r + 35) {
       isDragging = true;
-      dragStart.x = mx;
-      dragStart.y = my;
-      dragEnd.x = mx;
-      dragEnd.y = my;
+      dragStart.x = pos.x;
+      dragStart.y = pos.y;
+      dragEnd.x = pos.x;
+      dragEnd.y = pos.y;
       aimHintEl.style.display = 'none';
+
+      if (pointerId !== null && canvas.setPointerCapture) {
+        try {
+          canvas.setPointerCapture(pointerId);
+        } catch (_) {}
+      }
     }
   }
-});
+}
 
-canvas.addEventListener('mousemove', (e) => {
+function handleMove(clientX, clientY) {
   if (!isDragging) return;
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  dragEnd.x = (e.clientX - rect.left) * scaleX;
-  dragEnd.y = (e.clientY - rect.top) * scaleY;
-});
+  const pos = getCanvasCoords(clientX, clientY);
+  dragEnd.x = pos.x;
+  dragEnd.y = pos.y;
+}
 
-canvas.addEventListener('mouseup', () => {
+function handleEnd(pointerId = null) {
   if (!isDragging) return;
   isDragging = false;
+
+  if (pointerId !== null && canvas.releasePointerCapture) {
+    try {
+      if (canvas.hasPointerCapture && canvas.hasPointerCapture(pointerId)) {
+        canvas.releasePointerCapture(pointerId);
+      }
+    } catch (_) {}
+  }
 
   const dx = dragStart.x - dragEnd.x;
   const dy = dragStart.y - dragEnd.y;
@@ -1030,25 +1050,67 @@ canvas.addEventListener('mouseup', () => {
     ballsPocketedThisTurn = [];
     foulThisTurn = false;
   }
-});
+}
 
-// Touch support
-canvas.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  const t = e.touches[0];
-  canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
-}, { passive: false });
+// Modern Unified Pointer Events with Window-Level Tracking
+if (window.PointerEvent) {
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handleStart(e.clientX, e.clientY, e.pointerId);
+  }, { passive: false });
 
-canvas.addEventListener('touchmove', (e) => {
-  e.preventDefault();
-  const t = e.touches[0];
-  canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
-}, { passive: false });
+  window.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    handleMove(e.clientX, e.clientY);
+  });
 
-canvas.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  canvas.dispatchEvent(new MouseEvent('mouseup'));
-});
+  window.addEventListener('pointerup', (e) => {
+    if (!isDragging) return;
+    handleEnd(e.pointerId);
+  });
+
+  window.addEventListener('pointercancel', (e) => {
+    if (!isDragging) return;
+    handleEnd(e.pointerId);
+  });
+} else {
+  // Fallback for older browsers
+  canvas.addEventListener('mousedown', (e) => {
+    handleStart(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    handleMove(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    handleEnd();
+  });
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (t) handleStart(t.clientX, t.clientY);
+  }, { passive: false });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    const t = e.touches[0];
+    if (t) handleMove(t.clientX, t.clientY);
+  }, { passive: false });
+
+  window.addEventListener('touchend', (e) => {
+    if (!isDragging) return;
+    handleEnd();
+  });
+
+  window.addEventListener('touchcancel', () => {
+    if (!isDragging) return;
+    handleEnd();
+  });
+}
 
 // Play Again
 playAgainBtn.addEventListener('click', () => {
