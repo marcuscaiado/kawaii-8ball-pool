@@ -1,0 +1,310 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
+
+:root {
+  --pink: #ff6b9d;
+  --soft-pink: #ffb3d0;
+  --yellow: #ffd166;
+  --green: #06d6a0;
+  --purple: #a29bfe;
+  --orange: #ff9f43;
+  --blue: #74b9ff;
+  --dark: #2d3436;
+  --felt: #1a6b3c;
+  --felt-light: #228b50;
+  --wood: #8b5e3c;
+  --wood-light: #a0724a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 50%, #ff9a9e 100%);
+  font-family: 'Outfit', sans-serif;
+  user-select: none;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+#game-canvas {
+  border-radius: 16px;
+  box-shadow: 
+    0 20px 60px rgba(0,0,0,0.3),
+    0 0 40px rgba(255, 107, 157, 0.2),
+    inset 0 0 0 4px rgba(255,255,255,0.1);
+  cursor: crosshair;
+}
+
+/* ============ UI ============ */
+#ui {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.game-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: white;
+  text-shadow: 2px 2px 0 var(--pink), 4px 4px 0 rgba(0,0,0,0.1);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+  animation: titleFloat 3s ease-in-out infinite;
+}
+
+@keyframes titleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.player-panel {
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 14px;
+  padding: 8px 18px;
+  transition: all 0.4s ease;
+  min-width: 120px;
+}
+
+.player-panel.active {
+  background: rgba(255,255,255,0.45);
+  border-color: var(--yellow);
+  box-shadow: 0 0 20px rgba(255, 209, 102, 0.4);
+  transform: scale(1.05);
+}
+
+.player-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+
+.player-type {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.85);
+  margin-top: 2px;
+}
+
+.vs-badge {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--yellow);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+}
+
+/* ============ MESSAGE ============ */
+#message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 52px;
+  font-weight: 800;
+  color: var(--yellow);
+  text-shadow: 
+    3px 3px 0 var(--orange),
+    0 0 30px rgba(255, 209, 102, 0.5);
+  display: none;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: 2px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+#message.show {
+  display: block;
+  animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+  0% { transform: translate(-50%, -50%) scale(0.3) rotate(-5deg); opacity: 0; }
+  60% { transform: translate(-50%, -50%) scale(1.15) rotate(2deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* ============ TOP NAVIGATION ============ */
+.top-nav {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  gap: 12px;
+}
+
+.nav-btn {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.nav-btn:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.arcade-link {
+  background: linear-gradient(135deg, rgba(255, 107, 157, 0.7), rgba(255, 209, 102, 0.7));
+}
+
+/* ============ END ACTIONS CONTAINER ============ */
+#end-actions-container {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  z-index: 30;
+  animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.action-btn {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  border-radius: 16px;
+  padding: 12px 28px;
+  cursor: pointer;
+  border: 3px solid rgba(255,255,255,0.6);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  white-space: nowrap;
+}
+
+.action-btn:hover {
+  transform: translateY(-4px) scale(1.04);
+}
+
+.action-btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--pink), var(--purple));
+  box-shadow: 0 8px 25px rgba(255, 107, 157, 0.4);
+}
+
+.btn-arcade {
+  background: linear-gradient(135deg, var(--orange), var(--yellow));
+  box-shadow: 0 8px 25px rgba(255, 159, 67, 0.4);
+}
+
+/* ============ HINT ============ */
+#aim-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+  opacity: 0.7;
+  animation: hintPulse 3s ease-in-out infinite;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+}
+
+@keyframes hintPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+
+/* ============ MOBILE / GALAXY A55 RESPONSIVE ============ */
+@media (max-width: 768px) {
+  .top-nav {
+    top: 10px;
+    right: 10px;
+  }
+  .nav-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+  .game-title {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  .player-info {
+    gap: 8px;
+  }
+  .player-panel {
+    min-width: 85px;
+    padding: 4px 10px;
+    border-radius: 10px;
+  }
+  .player-label {
+    font-size: 11px;
+  }
+  .player-type {
+    font-size: 9px;
+  }
+  .vs-badge {
+    font-size: 12px;
+  }
+  #message {
+    font-size: 32px;
+  }
+  #end-actions-container {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 90%;
+  }
+  .action-btn {
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 12px;
+  }
+  #aim-hint {
+    font-size: 12px;
+    bottom: 8px;
+  }
+}
