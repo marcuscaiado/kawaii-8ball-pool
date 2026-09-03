@@ -610,8 +610,11 @@ function checkPockets(ball) {
     const dx = ball.x - pocket.x;
     const dy = ball.y - pocket.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const poolScore = (player1Score || 0) * 100 + ballsPocketedThisTurn.length * 50;
-    const ddaMult = window.ArcadeDifficulty ? ArcadeDifficulty.getMultiplier(poolScore, 1000, 1.8) : 1.0;
+    const pocketedCount = balls.filter(b => b.pocketed && b.number !== 0).length;
+    const poolScore = pocketedCount * 100 + ballsPocketedThisTurn.length * 50;
+    const ddaMult = (typeof ArcadeDifficulty !== 'undefined' && ArcadeDifficulty.getMultiplier)
+      ? ArcadeDifficulty.getMultiplier(poolScore, 1000, 1.8)
+      : 1.0;
     const pocketFactor = Math.max(0.48, 0.75 - (ddaMult - 1.0) * 0.2);
     if (dist < POCKET_R + ball.r * pocketFactor) {
       ball.pocketed = true;
@@ -767,8 +770,11 @@ function drawCueStick() {
   ctx.lineWidth = 1.5;
 
   // Raycast to find nearest ball intersection along the aim vector
-  const poolScore = (player1Score || 0) * 100 + ballsPocketedThisTurn.length * 50;
-  const ddaMult = window.ArcadeDifficulty ? ArcadeDifficulty.getMultiplier(poolScore, 1000, 1.8) : 1.0;
+  const pocketedCountAim = balls.filter(b => b.pocketed && b.number !== 0).length;
+  const poolScore = pocketedCountAim * 100 + ballsPocketedThisTurn.length * 50;
+  const ddaMult = (typeof ArcadeDifficulty !== 'undefined' && ArcadeDifficulty.getMultiplier)
+    ? ArcadeDifficulty.getMultiplier(poolScore, 1000, 1.8)
+    : 1.0;
   let maxAimDist = Math.max(320, 550 - (ddaMult - 1.0) * 140);
   let targetBall = null;
   const cosA = Math.cos(angle);
