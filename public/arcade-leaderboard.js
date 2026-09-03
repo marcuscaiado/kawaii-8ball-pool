@@ -153,10 +153,44 @@
   ];
 
   const DopamineSynth = {
-    getContext: getAudioCtx,
+    getContext: function() {
+      return (window.arcadeAudio && window.arcadeAudio.getContext()) || getAudioCtx();
+    },
+
+    // Tactile bounce / click / tap
+    playBounce: function(intensity = 1.0, material = 'wood') {
+      if (window.arcadeAudio) return window.arcadeAudio.playBounce(intensity, material);
+      this.playTap(0.16 * intensity);
+    },
+
+    // Bubble pop
+    playPop: function(pitch = 1.0, volume = 0.28) {
+      if (window.arcadeAudio) return window.arcadeAudio.playPop(pitch, volume);
+      this.playScore(volume);
+    },
+
+    // Collectible streak
+    playCollectStreak: function(streak = 1, maxStreak = 12) {
+      if (window.arcadeAudio) return window.arcadeAudio.playCollectStreak(streak, maxStreak);
+      this.playCombo(streak);
+    },
+
+    // Triumph arpeggio
+    playTriumph: function(scale = 'lydian') {
+      if (window.arcadeAudio) return window.arcadeAudio.playTriumph(scale);
+      this.playWin();
+    },
+
+    // Soft gentle thud
+    playSoftThud: function(intensity = 1.0) {
+      if (window.arcadeAudio) return window.arcadeAudio.playSoftThud(intensity);
+      this.playThud(0.35 * intensity);
+    },
 
     // Hit / Collect / Tap: marimba/kalimba bubble pop with instant attack and smooth decay
     playTap: function(vol = 0.16, pitchRatio = 1.0) {
+      if (window.arcadeAudio) return window.arcadeAudio.playBounce(pitchRatio * (vol / 0.16));
+
       try {
         const ctx = getAudioCtx();
         if (!ctx) return;
@@ -343,8 +377,9 @@
           left: 0;
           width: 100vw;
           height: 100vh;
-          pointer-events: none;
+          pointer-events: none !important;
           z-index: 99998;
+          background: transparent !important;
         }
         @keyframes dopamineScorePop {
           0% { transform: translate(-50%, 0) scale(1.45); opacity: 0; }
@@ -361,6 +396,8 @@
       if (!confettiCanvas) {
         confettiCanvas = document.createElement('canvas');
         confettiCanvas.id = 'dopamine-confetti-canvas';
+        confettiCanvas.style.background = 'transparent';
+        confettiCanvas.style.pointerEvents = 'none';
         document.body.appendChild(confettiCanvas);
       }
       confettiCtx = confettiCanvas.getContext('2d');
@@ -452,6 +489,6 @@
     }
   };
 
-  window.DopamineSynth = DopamineSynth;
+  window.DopamineSynth = window.arcadeAudio || DopamineSynth;
   window.DopamineJuice = DopamineJuice;
 })(window);

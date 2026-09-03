@@ -70,6 +70,10 @@ function playNoise(duration, volume = 0.08, delay = 0) {
 
 /** Cue stick hits the cue ball */
 export function sfxCueHit(power = 0.5) {
+  if (window.arcadeAudio) {
+    window.arcadeAudio.playBounce(0.7 + power * 0.8, 'wood');
+    return;
+  }
   if (window.DopamineSynth) {
     window.DopamineSynth.playThud(0.18 + power * 0.16);
   }
@@ -81,6 +85,10 @@ export function sfxCueHit(power = 0.5) {
 
 /** Cute ball-on-ball clack with pleasant pitch variation */
 export function sfxBallClack(speed = 1) {
+  if (window.arcadeAudio) {
+    window.arcadeAudio.playBounce(Math.min(1.8, 0.9 + speed * 0.2), 'metal');
+    return;
+  }
   if (window.DopamineSynth) {
     window.DopamineSynth.playTap(Math.min(0.24, 0.08 + speed * 0.03), 1.15);
   }
@@ -93,6 +101,10 @@ export function sfxBallClack(speed = 1) {
 
 /** Ball bounces off the wooden cushion rail */
 export function sfxCushion() {
+  if (window.arcadeAudio) {
+    window.arcadeAudio.playBounce(1.0, 'wood');
+    return;
+  }
   if (window.DopamineSynth) {
     window.DopamineSynth.playThud(0.15);
   }
@@ -102,6 +114,11 @@ export function sfxCushion() {
 
 /** Ball drops into a pocket — cheerful chime + heart drop sound */
 export function sfxPocket() {
+  if (window.arcadeAudio) {
+    window.arcadeAudio.playPop(1.5, 0.25);
+    window.arcadeAudio.playCollectStreak(1);
+    return;
+  }
   if (window.DopamineSynth) {
     window.DopamineSynth.playScore(0.25);
   } else {
@@ -113,12 +130,14 @@ export function sfxPocket() {
 
 /** Victory fanfare */
 export function sfxVictory() {
-  if (window.DopamineSynth) window.DopamineSynth.playWin();
+  if (window.arcadeAudio) window.arcadeAudio.playTriumph();
+  else if (window.DopamineSynth) window.DopamineSynth.playWin();
   if (window.DopamineJuice) window.DopamineJuice.explodeConfetti(window.innerWidth / 2, window.innerHeight * 0.4, 75);
 }
 
 /** UI button click */
 export function sfxClick() {
-  if (window.DopamineSynth) window.DopamineSynth.playTap(0.15, 1.4);
+  if (window.arcadeAudio) window.arcadeAudio.playClick();
+  else if (window.DopamineSynth) window.DopamineSynth.playTap(0.15, 1.4);
   else playTone(800, 0.04, 'triangle', 0.1);
 }
