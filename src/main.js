@@ -1,5 +1,5 @@
 import './style.css';
-import { sfxCueHit, sfxBallClack, sfxCushion, sfxPocket, sfxVictory, sfxClick } from './audio.js';
+import { sfxCueHit, sfxBallClack, sfxCushion, sfxPocket, sfxScratch, sfxKawaiiCombo, sfxVictory, sfxClick } from './audio.js';
 import { network } from './network.js';
 
 // =============================================
@@ -62,6 +62,7 @@ let dragStart = { x: 0, y: 0 };
 let dragEnd = { x: 0, y: 0 };
 let currentPlayer = 1;      // 1 or 2
 let playerTypes = { 1: null, 2: null }; // 'solid' or 'stripe', assigned on first pocket
+let playerStreaks = { 1: 0, 2: 0 };    // Consecutive turn pocket streaks
 let gameOver = false;
 let foulThisTurn = false;
 let ballsPocketedThisTurn = [];
@@ -192,10 +193,34 @@ class Ball {
     const top = BORDER + this.r;
     const bottom = BORDER + TABLE_H - this.r;
 
-    if (this.x < left) { this.x = left; this.vx *= -0.8; this.triggerSquish(0); sfxCushion(); }
-    if (this.x > right) { this.x = right; this.vx *= -0.8; this.triggerSquish(0); sfxCushion(); }
-    if (this.y < top) { this.y = top; this.vy *= -0.8; this.triggerSquish(Math.PI / 2); sfxCushion(); }
-    if (this.y > bottom) { this.y = bottom; this.vy *= -0.8; this.triggerSquish(Math.PI / 2); sfxCushion(); }
+    if (this.x < left) {
+      this.x = left;
+      const spd = Math.abs(this.vx);
+      this.vx *= -0.8;
+      this.triggerSquish(0);
+      if (spd > 0.35) sfxCushion(spd);
+    }
+    if (this.x > right) {
+      this.x = right;
+      const spd = Math.abs(this.vx);
+      this.vx *= -0.8;
+      this.triggerSquish(0);
+      if (spd > 0.35) sfxCushion(spd);
+    }
+    if (this.y < top) {
+      this.y = top;
+      const spd = Math.abs(this.vy);
+      this.vy *= -0.8;
+      this.triggerSquish(Math.PI / 2);
+      if (spd > 0.35) sfxCushion(spd);
+    }
+    if (this.y > bottom) {
+      this.y = bottom;
+      const spd = Math.abs(this.vy);
+      this.vy *= -0.8;
+      this.triggerSquish(Math.PI / 2);
+      if (spd > 0.35) sfxCushion(spd);
+    }
   }
 
   triggerSquish(dir) {
@@ -555,6 +580,7 @@ function initBalls() {
   balls = [];
   sparkles = [];
   hearts = [];
+  playerStreaks = { 1: 0, 2: 0 };
 
   // Cue ball
   cueBall = new Ball(BORDER + TABLE_W * 0.25, BORDER + TABLE_H / 2, 0);
@@ -578,6 +604,46 @@ function initBalls() {
       balls.push(ball);
       idx++;
     }
+  }
+}
+
+// =============================================
+//  KAWAII COMBO VISUAL BADGE
+// =============================================
+function spawnKawaiiComboPopup(tableX, tableY, text, level = 2) {
+  const rect = canvas.getBoundingClientRect();
+  const screenX = rect.left + (tableX / canvas.width) * rect.width;
+  const screenY = rect.top + (tableY / canvas.height) * rect.height;
+
+  const badge = document.createElement('div');
+  badge.className = `kawaii-combo-badge level-${Math.min(level, 4)}`;
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'combo-icon';
+  iconSpan.textContent = level >= 3 ? '✨' : '💖';
+
+  const textSpan = document.createElement('span');
+  textSpan.textContent = text;
+
+  badge.appendChild(iconSpan);
+  badge.appendChild(textSpan);
+
+  badge.style.left = `${screenX}px`;
+  badge.style.top = `${screenY}px`;
+
+  document.body.appendChild(badge);
+
+  // Auto remove after float animation finishes
+  setTimeout(() => {
+    if (badge.parentNode) badge.parentNode.removeChild(badge);
+  }, 1850);
+
+  // Extra kawaii heart and sparkle explosions on table
+  for (let i = 0; i < 16; i++) {
+    hearts.push(new Heart(tableX, tableY));
+  }
+  for (let i = 0; i < 14; i++) {
+    sparkles.push(new Sparkle(tableX, tableY, level >= 3 ? '#ffd166' : '#ff6b9d'));
   }
 }
 
@@ -624,7 +690,7 @@ function resolveCollision(a, b) {
     a.triggerSquish(collisionAngle);
     b.triggerSquish(collisionAngle + Math.PI);
 
-    // Cute clack sound!
+    // Authentic Phenolic Resin Ball Clack!
     sfxBallClack(impulse);
 
     // Sparkles on collision!
@@ -651,12 +717,40 @@ function checkPockets(ball) {
       ball.pocketed = true;
       ball.vx = 0;
       ball.vy = 0;
-      sfxPocket();
+
+      if (ball.num === 0) {
+        // Cue ball scratch! Authentic leather drop + foul alert
+        sfxPocket();
+        sfxScratch();
+        playerStreaks[currentPlayer] = 0;
+      } else {
+        // Numbered ball pocketed
+        const numberedPocketedThisTurn = ballsPocketedThisTurn.filter(b => b.num !== 0).length;
+
+        if (numberedPocketedThisTurn >= 1) {
+          // Multi-pocket combo in the same shot! (Double / Triple pocket)
+          const comboNum = numberedPocketedThisTurn + 1;
+          sfxKawaiiCombo(comboNum);
+          const comboTitle = comboNum === 2 ? '💖 DOUBLE POCKET! x2' :
+                             comboNum === 3 ? '✨ TRIPLE POCKET! x3' :
+                             `🌟 MEGA COMBO! x${comboNum}`;
+          spawnKawaiiComboPopup(pocket.x, pocket.y, comboTitle, comboNum);
+        } else if (playerStreaks[currentPlayer] >= 1) {
+          // Consecutive turn streak pocket!
+          const streakNum = playerStreaks[currentPlayer] + 1;
+          sfxKawaiiCombo(streakNum);
+          spawnKawaiiComboPopup(pocket.x, pocket.y, `🌸 STREAK x${streakNum}! ✨`, streakNum);
+        } else {
+          // Authentic characteristic 8-ball leather pocket drop
+          sfxPocket();
+        }
+      }
+
       if (window.DopamineJuice) {
         const rect = canvas.getBoundingClientRect();
         const sx = rect.left + (pocket.x / canvas.width) * rect.width;
         const sy = rect.top + (pocket.y / canvas.height) * rect.height;
-        window.DopamineJuice.spawnScore(sx, sy, `POCKET! 🎱✨`, 2);
+        window.DopamineJuice.spawnScore(sx, sy, ball.num === 0 ? 'SCRATCH! 🥺' : `POCKET! 🎱✨`, 2);
       }
 
       // Hearts burst!
@@ -1007,11 +1101,18 @@ function handleTurnEnd() {
       keepTurn = pocketedNums.some(b =>
         (ownType === 'solid' && b.isSolid) || (ownType === 'stripe' && b.isStripe)
       );
+    } else if (!foulThisTurn && pocketedNums.length > 0 && playerTypes[currentPlayer] === null) {
+      keepTurn = true;
     }
 
-    if (!keepTurn || foulThisTurn) {
+    if (keepTurn && !foulThisTurn) {
+      // Increment turn streak for active player
+      playerStreaks[currentPlayer] = (playerStreaks[currentPlayer] || 0) + 1;
+    } else {
+      playerStreaks[currentPlayer] = 0;
       // Switch player
       currentPlayer = currentPlayer === 1 ? 2 : 1;
+      playerStreaks[currentPlayer] = 0;
     }
 
     updatePlayerUI();
