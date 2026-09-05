@@ -160,10 +160,12 @@ export class PoolNetwork {
 
     if (type === 'role') {
       if (!this.isHost) {
-        this.connectedPeerId = 'local-host';
         this.playerNumber = 2;
-        if (this.onPeerJoin) {
-          this.onPeerJoin('local-host', this.playerNumber);
+        if (!this.connectedPeerId) {
+          this.connectedPeerId = 'local-host';
+          if (this.onPeerJoin) {
+            this.onPeerJoin('local-host', this.playerNumber);
+          }
         }
       }
       return;

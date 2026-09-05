@@ -1,6 +1,7 @@
 import './style.css';
 import { sfxCueHit, sfxBallClack, sfxCushion, sfxPocket, sfxScratch, sfxKawaiiCombo, sfxVictory, sfxClick } from './audio.js';
 import { network } from './network.js';
+window.network = network;
 
 // =============================================
 //  KAWAII 8-BALL POOL 🎱✨
@@ -1043,6 +1044,14 @@ function handleTurnEnd() {
   if (turnActive && !anyBallMoving()) {
     turnActive = false;
 
+    // IN ONLINE MULTIPLAYER: ONLY the Host decides rules, pockets, and turn switching!
+    // Guest runs client-side physics prediction and receives authoritative state from Host.
+    if (isOnlineMode && !network.isHost) {
+      ballsPocketedThisTurn = [];
+      foulThisTurn = false;
+      return;
+    }
+
     // Check if cue ball was pocketed (scratch)
     if (cueBall.pocketed) {
       foulThisTurn = true;
@@ -1091,6 +1100,23 @@ function handleTurnEnd() {
           window.ArcadeLeaderboard.submitScore('kawaii-8ball-pool', 800);
         }
       } catch(e){}
+
+      // Sync game over to guest immediately
+      if (isOnlineMode && network.isHost) {
+        network.sendSync({
+          balls: balls.map(b => ({
+            num: b.num,
+            x: b.x,
+            y: b.y,
+            vx: b.vx,
+            vy: b.vy,
+            pocketed: b.pocketed
+          })),
+          currentPlayer,
+          playerTypes,
+          gameOver: true
+        });
+      }
       return;
     }
 
@@ -1160,6 +1186,10 @@ function updatePlayerUI() {
     } else if (currentPlayer === myPlayerNumber) {
       aimHintEl.textContent = '✨ Your turn! Click & drag cue ball to shoot! 🎯';
       aimHintEl.style.display = 'block';
+      if (messageEl && messageEl.textContent.includes('Wait for')) {
+        messageEl.style.display = 'none';
+        messageEl.className = '';
+      }
     } else {
       aimHintEl.textContent = `⏳ Opponent's turn (Player ${currentPlayer} is aiming...)`;
       aimHintEl.style.display = 'block';
@@ -1649,9 +1679,33 @@ network.onStateSync = (stateData) => {
     currentPlayer = stateData.currentPlayer;
     playerTypes = stateData.playerTypes;
     gameOver = stateData.gameOver;
+    turnActive = false; // Authoritative sync: turn is completely stopped
+    ballsPocketedThisTurn = [];
+    foulThisTurn = false;
+    opponentAim.active = false;
     updatePlayerUI();
   }
 };
+
+// Periodic Authoritative Heartbeat Sync (Host -> Guest)
+// Guarantees zero desync and auto-heals any connection hiccup every 1 second
+setInterval(() => {
+  if (isOnlineMode && network.isHost && network.connectedPeerId && !turnActive && !anyBallMoving() && !gameOver) {
+    network.sendSync({
+      balls: balls.map(b => ({
+        num: b.num,
+        x: b.x,
+        y: b.y,
+        vx: b.vx,
+        vy: b.vy,
+        pocketed: b.pocketed
+      })),
+      currentPlayer,
+      playerTypes,
+      gameOver
+    });
+  }
+}, 1000);
 
 network.onEmote = ({ emote, playerNumber }) => {
   showEmoteBubble(playerNumber, emote);
