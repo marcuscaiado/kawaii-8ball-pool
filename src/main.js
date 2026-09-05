@@ -1,5 +1,6 @@
 import './style.css';
 import { sfxCueHit, sfxBallClack, sfxCushion, sfxPocket, sfxVictory, sfxClick } from './audio.js';
+import { network } from './network.js';
 
 // =============================================
 //  KAWAII 8-BALL POOL 🎱✨
@@ -14,8 +15,29 @@ const endActionsContainer = document.getElementById('end-actions-container');
 const aimHintEl = document.getElementById('aim-hint');
 const p1Panel = document.getElementById('p1-panel');
 const p2Panel = document.getElementById('p2-panel');
+const p1Label = document.getElementById('p1-label');
+const p2Label = document.getElementById('p2-label');
 const p1Type = document.getElementById('p1-type');
 const p2Type = document.getElementById('p2-type');
+
+// Online Multiplayer Elements
+const onlineBtn = document.getElementById('online-btn');
+const roomBadge = document.getElementById('room-badge');
+const roomBadgeText = document.getElementById('room-badge-text');
+const emoteDock = document.getElementById('emote-dock');
+const onlineModal = document.getElementById('online-modal');
+const modalClose = document.getElementById('modal-close');
+const tabHost = document.getElementById('tab-host');
+const tabJoin = document.getElementById('tab-join');
+const panelHost = document.getElementById('panel-host');
+const panelJoin = document.getElementById('panel-join');
+const hostCodeText = document.getElementById('host-code-text');
+const copyLinkBtn = document.getElementById('copy-link-btn');
+const hostStatus = document.getElementById('host-status');
+const joinCodeInput = document.getElementById('join-code-input');
+const joinRoomBtn = document.getElementById('join-room-btn');
+const joinStatus = document.getElementById('join-status');
+const localModeBtn = document.getElementById('local-mode-btn');
 
 // =============================================
 //  TABLE DIMENSIONS
@@ -47,6 +69,13 @@ let turnActive = false;      // True while balls are moving
 let sparkles = [];
 let hearts = [];
 let cueBallPlacing = false;  // When cue ball is in hand
+
+// Online Multiplayer State
+let isOnlineMode = false;
+let myPlayerNumber = 1;      // 1 (Host/Cherry) or 2 (Guest/Berry)
+let myRoomCode = '';
+let opponentAim = { active: false, angle: 0, power: 0, cueBallX: 0, cueBallY: 0 };
+let rematchPending = false;
 
 // Pockets (center positions)
 const pockets = [
@@ -530,6 +559,8 @@ function initBalls() {
   // Cue ball
   cueBall = new Ball(BORDER + TABLE_W * 0.25, BORDER + TABLE_H / 2, 0);
   balls.push(cueBall);
+  window.cueBall = cueBall;
+  window.balls = balls;
 
   // Rack arrangement (standard 8-ball rack)
   // The 8-ball goes in the center of the third row
@@ -751,22 +782,15 @@ function drawDiamond(x, y, size, color) {
   ctx.fill();
 }
 
-function drawCueStick() {
-  if (!isDragging || !cueBall || cueBall.pocketed) return;
-
-  const dx = dragStart.x - dragEnd.x;
-  const dy = dragStart.y - dragEnd.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const power = Math.min(dist / 200, 1);
-
-  if (dist < 3) return;
-
-  const angle = Math.atan2(dy, dx);
+function renderCueAndAim(angle, power, isOpponent = false) {
+  if (!cueBall || cueBall.pocketed) return;
 
   // Direction line (laser guideline across the table)
   ctx.save();
   ctx.setLineDash([4, 5]);
-  ctx.strokeStyle = `rgba(255,255,255,${0.45 + power * 0.35})`;
+  ctx.strokeStyle = isOpponent
+    ? `rgba(255, 107, 157, ${0.5 + power * 0.4})`
+    : `rgba(255, 255, 255, ${0.45 + power * 0.35})`;
   ctx.lineWidth = 1.5;
 
   // Raycast to find nearest ball intersection along the aim vector
@@ -805,7 +829,7 @@ function drawCueStick() {
 
   // Draw Ghost Cue Ball at impact point
   ctx.setLineDash([]);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.strokeStyle = isOpponent ? 'rgba(255, 107, 157, 0.7)' : 'rgba(255, 255, 255, 0.6)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(endX, endY, cueBall.r, 0, Math.PI * 2);
@@ -827,10 +851,17 @@ function drawCueStick() {
 
   // Stick body gradient
   const stickGrad = ctx.createLinearGradient(stickOffset, 0, stickOffset + stickLen, 0);
-  stickGrad.addColorStop(0, '#f5deb3');
-  stickGrad.addColorStop(0.1, '#ffe4b5');
-  stickGrad.addColorStop(0.7, '#d2a86e');
-  stickGrad.addColorStop(1, '#8b5e3c');
+  if (isOpponent) {
+    stickGrad.addColorStop(0, '#ffd1dc');
+    stickGrad.addColorStop(0.1, '#ffb3d0');
+    stickGrad.addColorStop(0.7, '#d2a86e');
+    stickGrad.addColorStop(1, '#8b5e3c');
+  } else {
+    stickGrad.addColorStop(0, '#f5deb3');
+    stickGrad.addColorStop(0.1, '#ffe4b5');
+    stickGrad.addColorStop(0.7, '#d2a86e');
+    stickGrad.addColorStop(1, '#8b5e3c');
+  }
   ctx.fillStyle = stickGrad;
 
   // Tapered stick
@@ -843,16 +874,16 @@ function drawCueStick() {
   ctx.fill();
 
   // Tip
-  ctx.fillStyle = '#87ceeb';
+  ctx.fillStyle = isOpponent ? '#ff6b9d' : '#87ceeb';
   ctx.beginPath();
   ctx.arc(stickOffset, 0, 2.5, 0, Math.PI * 2);
   ctx.fill();
 
   // Power indicator glow
-  if (power > 0.3) {
+  if (power > 0.2) {
     ctx.beginPath();
     ctx.arc(stickOffset, 0, 4 + power * 4, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 107, 157, ${power * 0.4})`;
+    ctx.fillStyle = isOpponent ? `rgba(255, 107, 157, ${power * 0.5})` : `rgba(255, 107, 157, ${power * 0.4})`;
     ctx.fill();
   }
 
@@ -876,6 +907,35 @@ function drawCueStick() {
   ctx.beginPath();
   ctx.roundRect(barX, barY, barW * power, barH, 2);
   ctx.fill();
+
+  // Kawaii opponent aiming label
+  if (isOpponent) {
+    ctx.save();
+    ctx.font = 'bold 12px "Outfit", sans-serif';
+    ctx.fillStyle = '#ff6b9d';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 4;
+    ctx.fillText('🍓 Opponent Aiming...', cueBall.x, cueBall.y - cueBall.r - 14);
+    ctx.restore();
+  }
+}
+
+function drawCueStick() {
+  const isLocalTurn = !isOnlineMode || currentPlayer === myPlayerNumber;
+
+  if (isLocalTurn && isDragging && cueBall && !cueBall.pocketed) {
+    const dx = dragStart.x - dragEnd.x;
+    const dy = dragStart.y - dragEnd.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const power = Math.min(dist / 200, 1);
+    if (dist >= 3) {
+      const angle = Math.atan2(dy, dx);
+      renderCueAndAim(angle, power, false);
+    }
+  } else if (isOnlineMode && !isLocalTurn && opponentAim.active && cueBall && !cueBall.pocketed) {
+    renderCueAndAim(opponentAim.angle, opponentAim.power, true);
+  }
 }
 
 // =============================================
@@ -957,8 +1017,28 @@ function handleTurnEnd() {
     updatePlayerUI();
     foulThisTurn = false;
     ballsPocketedThisTurn = [];
+
+    // Authoritative Sync from Host to Guest
+    if (isOnlineMode && network.isHost) {
+      network.sendSync({
+        balls: balls.map(b => ({
+          num: b.num,
+          x: b.x,
+          y: b.y,
+          vx: b.vx,
+          vy: b.vy,
+          pocketed: b.pocketed
+        })),
+        currentPlayer,
+        playerTypes,
+        gameOver
+      });
+    }
   }
 }
+
+window.isTurnActive = () => turnActive;
+window.getCurrentPlayer = () => currentPlayer;
 
 function updatePlayerUI() {
   p1Panel.classList.toggle('active', currentPlayer === 1);
@@ -968,6 +1048,26 @@ function updatePlayerUI() {
   const stripeEmoji = '🟡 Stripes';
   p1Type.textContent = playerTypes[1] === 'solid' ? solidEmoji : playerTypes[1] === 'stripe' ? stripeEmoji : '🎱';
   p2Type.textContent = playerTypes[2] === 'solid' ? solidEmoji : playerTypes[2] === 'stripe' ? stripeEmoji : '🎱';
+
+  if (isOnlineMode) {
+    p1Label.textContent = myPlayerNumber === 1 ? 'Player 1 🌸 (YOU)' : 'Player 1 🌸';
+    p2Label.textContent = myPlayerNumber === 2 ? 'Player 2 🍓 (YOU)' : 'Player 2 🍓';
+
+    if (!network.connectedPeerId) {
+      aimHintEl.textContent = '🟡 Waiting for friend to join...';
+      aimHintEl.style.display = 'block';
+    } else if (currentPlayer === myPlayerNumber) {
+      aimHintEl.textContent = '✨ Your turn! Click & drag cue ball to shoot! 🎯';
+      aimHintEl.style.display = 'block';
+    } else {
+      aimHintEl.textContent = `⏳ Opponent's turn (Player ${currentPlayer} is aiming...)`;
+      aimHintEl.style.display = 'block';
+    }
+  } else {
+    p1Label.textContent = 'Player 1 🌸';
+    p2Label.textContent = 'Player 2 🍓';
+    aimHintEl.textContent = `Player ${currentPlayer}'s turn! Click & drag on the white ball to shoot! 🎯`;
+  }
 }
 
 function showMessage(text) {
@@ -992,6 +1092,21 @@ function getCanvasCoords(clientX, clientY) {
 
 function handleStart(clientX, clientY, pointerId = null) {
   if (gameOver || turnActive) return;
+
+  // Online turn locking
+  if (isOnlineMode) {
+    if (!network.connectedPeerId) {
+      showMessage('Waiting for friend to connect! ⏳');
+      setTimeout(() => { if (!turnActive && !gameOver) messageEl.style.display = 'none'; }, 2000);
+      return;
+    }
+    if (currentPlayer !== myPlayerNumber) {
+      showMessage(`Wait for Player ${currentPlayer}'s turn! ⏳`);
+      setTimeout(() => { if (!turnActive && !gameOver) messageEl.style.display = 'none'; }, 1500);
+      return;
+    }
+  }
+
   const pos = getCanvasCoords(clientX, clientY);
 
   // Check if clicking near cue ball
@@ -1021,6 +1136,21 @@ function handleMove(clientX, clientY) {
   const pos = getCanvasCoords(clientX, clientY);
   dragEnd.x = pos.x;
   dragEnd.y = pos.y;
+
+  if (isOnlineMode && cueBall && !cueBall.pocketed) {
+    const dx = dragStart.x - dragEnd.x;
+    const dy = dragStart.y - dragEnd.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const power = Math.min(dist / 200, 1);
+    const angle = Math.atan2(dy, dx);
+    network.sendAim({
+      active: true,
+      angle,
+      power,
+      cueBallX: cueBall.x,
+      cueBallY: cueBall.y
+    });
+  }
 }
 
 function handleEnd(pointerId = null) {
@@ -1033,6 +1163,10 @@ function handleEnd(pointerId = null) {
         canvas.releasePointerCapture(pointerId);
       }
     } catch (_) {}
+  }
+
+  if (isOnlineMode) {
+    network.sendAim({ active: false });
   }
 
   const dx = dragStart.x - dragEnd.x;
@@ -1049,6 +1183,15 @@ function handleEnd(pointerId = null) {
     turnActive = true;
     ballsPocketedThisTurn = [];
     foulThisTurn = false;
+
+    if (isOnlineMode) {
+      network.sendShot({
+        angle,
+        power,
+        cueBallX: cueBall.x,
+        cueBallY: cueBall.y
+      });
+    }
   }
 }
 
@@ -1112,18 +1255,49 @@ if (window.PointerEvent) {
   });
 }
 
-// Play Again
-playAgainBtn.addEventListener('click', () => {
-  sfxClick();
+// =============================================
+//  RESET / REMATCH
+// =============================================
+function resetMatch(preserveOnline = false) {
   gameOver = false;
   currentPlayer = 1;
   playerTypes = { 1: null, 2: null };
+  opponentAim = { active: false, angle: 0, power: 0, cueBallX: 0, cueBallY: 0 };
+  rematchPending = false;
   messageEl.style.display = 'none';
   messageEl.className = '';
   if (endActionsContainer) endActionsContainer.style.display = 'none';
   aimHintEl.style.display = 'block';
-  updatePlayerUI();
   initBalls();
+  updatePlayerUI();
+
+  if (preserveOnline && isOnlineMode && network.isHost) {
+    network.sendSync({
+      balls: balls.map(b => ({
+        num: b.num,
+        x: b.x,
+        y: b.y,
+        vx: b.vx,
+        vy: b.vy,
+        pocketed: b.pocketed
+      })),
+      currentPlayer: 1,
+      playerTypes: { 1: null, 2: null },
+      gameOver: false
+    });
+  }
+}
+
+// Play Again
+playAgainBtn.addEventListener('click', () => {
+  sfxClick();
+  if (isOnlineMode) {
+    network.sendRematch();
+    rematchPending = true;
+    showMessage('🔄 Rematch requested! Waiting for friend...');
+  } else {
+    resetMatch(false);
+  }
 });
 
 // =============================================
@@ -1216,6 +1390,277 @@ function resizeCanvas() {
 }
 
 window.addEventListener('resize', resizeCanvas);
+
+// =============================================
+//  ONLINE MULTIPLAYER & EMOTES
+// =============================================
+function showEmoteBubble(playerNumber, emote) {
+  const panel = playerNumber === 1 ? p1Panel : p2Panel;
+  if (!panel) return;
+  const bubble = document.createElement('div');
+  bubble.className = 'emote-bubble';
+  bubble.textContent = emote;
+  panel.appendChild(bubble);
+  setTimeout(() => {
+    if (bubble.parentNode) bubble.parentNode.removeChild(bubble);
+  }, 2200);
+}
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+function startOnlineHost() {
+  myRoomCode = generateRoomCode();
+  if (hostCodeText) hostCodeText.textContent = myRoomCode;
+  if (hostStatus) {
+    hostStatus.textContent = '🟡 Waiting for Player 2 to connect...';
+    hostStatus.style.color = '#555';
+  }
+  if (copyLinkBtn) copyLinkBtn.textContent = '📋 Copy Invite Link';
+
+  myPlayerNumber = 1;
+  network.initRoom(myRoomCode, true);
+}
+
+function joinOnlineRoom(code) {
+  const cleanCode = (code || '').toUpperCase().trim();
+  if (!cleanCode || cleanCode.length < 3) {
+    if (joinStatus) {
+      joinStatus.textContent = '❌ Please enter a valid room code!';
+      joinStatus.style.color = '#ff6b6b';
+    }
+    return;
+  }
+
+  myRoomCode = cleanCode;
+  myPlayerNumber = 2;
+  if (joinStatus) {
+    joinStatus.textContent = `Connecting to ${cleanCode}... 📡`;
+    joinStatus.style.color = '#ff9f43';
+  }
+
+  network.initRoom(cleanCode, false);
+}
+
+function switchToLocalMode() {
+  network.leaveRoom();
+  isOnlineMode = false;
+  myPlayerNumber = 1;
+  myRoomCode = '';
+  opponentAim.active = false;
+  if (roomBadge) roomBadge.style.display = 'none';
+  if (emoteDock) emoteDock.style.display = 'none';
+  if (onlineModal) onlineModal.style.display = 'none';
+  resetMatch(false);
+  showMessage('Switched to Local Pass & Play! 👥');
+  setTimeout(() => { if (!turnActive && !gameOver) messageEl.style.display = 'none'; }, 1800);
+}
+
+// Network Callbacks
+network.onPeerJoin = (peerId, playerNumber) => {
+  isOnlineMode = true;
+  myPlayerNumber = network.playerNumber;
+  if (emoteDock) emoteDock.style.display = 'flex';
+  if (roomBadge) {
+    roomBadge.style.display = 'flex';
+    roomBadgeText.textContent = 'ROOM: ' + myRoomCode;
+  }
+
+  if (network.isHost) {
+    if (hostStatus) {
+      hostStatus.textContent = '🟢 Opponent joined! Game starting...';
+      hostStatus.style.color = '#06d6a0';
+    }
+    // Send initial authoritative sync to guest
+    setTimeout(() => {
+      network.sendSync({
+        balls: balls.map(b => ({
+          num: b.num,
+          x: b.x,
+          y: b.y,
+          vx: b.vx,
+          vy: b.vy,
+          pocketed: b.pocketed
+        })),
+        currentPlayer,
+        playerTypes,
+        gameOver
+      });
+    }, 400);
+  } else {
+    if (joinStatus) {
+      joinStatus.textContent = '🟢 Connected to host! Game starting...';
+      joinStatus.style.color = '#06d6a0';
+    }
+  }
+
+  setTimeout(() => {
+    if (onlineModal) onlineModal.style.display = 'none';
+  }, 900);
+
+  updatePlayerUI();
+};
+
+network.onPeerLeave = () => {
+  showMessage('Opponent disconnected! 😢');
+  if (roomBadgeText) roomBadgeText.textContent = 'ROOM: ' + myRoomCode + ' (WAITING)';
+  updatePlayerUI();
+};
+
+network.onOpponentAim = (aimData) => {
+  opponentAim = aimData;
+};
+
+network.onOpponentShot = (shotData) => {
+  if (cueBall && !cueBall.pocketed) {
+    cueBall.x = shotData.cueBallX;
+    cueBall.y = shotData.cueBallY;
+    sfxCueHit(shotData.power);
+    const maxSpeed = 18;
+    cueBall.vx = Math.cos(shotData.angle) * shotData.power * maxSpeed;
+    cueBall.vy = Math.sin(shotData.angle) * shotData.power * maxSpeed;
+    turnActive = true;
+    ballsPocketedThisTurn = [];
+    foulThisTurn = false;
+    opponentAim.active = false;
+  }
+};
+
+network.onStateSync = (stateData) => {
+  if (!network.isHost) {
+    // Reconcile ball positions & states from host
+    for (const savedBall of stateData.balls) {
+      const b = balls.find(item => item.num === savedBall.num);
+      if (b) {
+        b.x = savedBall.x;
+        b.y = savedBall.y;
+        b.vx = savedBall.vx;
+        b.vy = savedBall.vy;
+        b.pocketed = savedBall.pocketed;
+      }
+    }
+    currentPlayer = stateData.currentPlayer;
+    playerTypes = stateData.playerTypes;
+    gameOver = stateData.gameOver;
+    updatePlayerUI();
+  }
+};
+
+network.onEmote = ({ emote, playerNumber }) => {
+  showEmoteBubble(playerNumber, emote);
+};
+
+network.onRematch = () => {
+  if (rematchPending) {
+    resetMatch(true);
+    showMessage('🔄 Match restarted! Good luck! ✨');
+    setTimeout(() => { if (!turnActive && !gameOver) messageEl.style.display = 'none'; }, 2000);
+  } else {
+    rematchPending = true;
+    showMessage('Opponent wants a rematch! Click Play Again 🔄');
+  }
+};
+
+// UI Listeners
+if (onlineBtn) {
+  onlineBtn.addEventListener('click', () => {
+    sfxClick();
+    if (onlineModal) onlineModal.style.display = 'flex';
+    if (!myRoomCode) {
+      startOnlineHost();
+    }
+  });
+}
+
+if (modalClose) {
+  modalClose.addEventListener('click', () => {
+    sfxClick();
+    if (onlineModal) onlineModal.style.display = 'none';
+  });
+}
+
+if (tabHost && tabJoin) {
+  tabHost.addEventListener('click', () => {
+    sfxClick();
+    tabHost.classList.add('active');
+    tabJoin.classList.remove('active');
+    if (panelHost) panelHost.classList.add('active');
+    if (panelJoin) panelJoin.classList.remove('active');
+    if (!network.isHost && (!isOnlineMode || !myRoomCode)) {
+      startOnlineHost();
+    }
+  });
+
+  tabJoin.addEventListener('click', () => {
+    sfxClick();
+    tabJoin.classList.add('active');
+    tabHost.classList.remove('active');
+    if (panelJoin) panelJoin.classList.add('active');
+    if (panelHost) panelHost.classList.remove('active');
+  });
+}
+
+if (copyLinkBtn) {
+  copyLinkBtn.addEventListener('click', () => {
+    sfxClick();
+    const inviteUrl = window.location.origin + window.location.pathname + '?room=' + myRoomCode;
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      copyLinkBtn.textContent = '✅ Copied Link!';
+      setTimeout(() => {
+        copyLinkBtn.textContent = '📋 Copy Invite Link';
+      }, 2000);
+    }).catch(() => {
+      prompt('Copy this invite link:', inviteUrl);
+    });
+  });
+}
+
+if (joinRoomBtn && joinCodeInput) {
+  joinRoomBtn.addEventListener('click', () => {
+    sfxClick();
+    joinOnlineRoom(joinCodeInput.value);
+  });
+
+  joinCodeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      joinOnlineRoom(joinCodeInput.value);
+    }
+  });
+}
+
+if (localModeBtn) {
+  localModeBtn.addEventListener('click', () => {
+    sfxClick();
+    switchToLocalMode();
+  });
+}
+
+document.querySelectorAll('.emote-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const emote = btn.dataset.emote;
+    sfxClick();
+    showEmoteBubble(myPlayerNumber, emote);
+    if (isOnlineMode) {
+      network.sendEmote(emote);
+    }
+  });
+});
+
+// Auto-join from URL parameter ?room=XXXX
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+  if (onlineModal) onlineModal.style.display = 'flex';
+  if (tabJoin) tabJoin.click();
+  if (joinCodeInput) joinCodeInput.value = roomParam.toUpperCase();
+  joinOnlineRoom(roomParam);
+}
 
 // =============================================
 //  START!
