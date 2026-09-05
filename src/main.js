@@ -34,6 +34,7 @@ const panelHost = document.getElementById('panel-host');
 const panelJoin = document.getElementById('panel-join');
 const hostCodeText = document.getElementById('host-code-text');
 const copyLinkBtn = document.getElementById('copy-link-btn');
+const inviteLinkInput = document.getElementById('invite-link-input');
 const hostStatus = document.getElementById('host-status');
 const joinCodeInput = document.getElementById('join-code-input');
 const joinRoomBtn = document.getElementById('join-room-btn');
@@ -1546,14 +1547,60 @@ function generateRoomCode() {
   return code;
 }
 
+function getInviteUrl(code) {
+  const base = window.location.href.split('?')[0].split('#')[0];
+  return base + '?room=' + (code || myRoomCode || '');
+}
+
+async function copyTextToClipboard(text) {
+  // 1. Modern clipboard API if supported and in secure context
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {}
+  }
+
+  // 2. Universal selection & execCommand fallback (cross-platform, iOS/Android/iframes)
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.width = '2em';
+    textarea.style.height = '2em';
+    textarea.style.padding = '0';
+    textarea.style.border = 'none';
+    textarea.style.outline = 'none';
+    textarea.style.boxShadow = 'none';
+    textarea.style.background = 'transparent';
+    textarea.setAttribute('readonly', '');
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (successful) return true;
+  } catch (_) {}
+
+  return false;
+}
+
 function startOnlineHost() {
   myRoomCode = generateRoomCode();
   if (hostCodeText) hostCodeText.textContent = myRoomCode;
+  const inviteUrl = getInviteUrl(myRoomCode);
+  if (inviteLinkInput) inviteLinkInput.value = inviteUrl;
   if (hostStatus) {
     hostStatus.textContent = '🟡 Waiting for Player 2 to connect...';
     hostStatus.style.color = '#555';
   }
-  if (copyLinkBtn) copyLinkBtn.textContent = '📋 Copy Invite Link';
+  if (copyLinkBtn) {
+    copyLinkBtn.textContent = '📋 Copy Link';
+    copyLinkBtn.style.background = '';
+  }
 
   myPlayerNumber = 1;
   network.initRoom(myRoomCode, true);
@@ -1729,6 +1776,8 @@ if (onlineBtn) {
     if (onlineModal) onlineModal.style.display = 'flex';
     if (!myRoomCode) {
       startOnlineHost();
+    } else if (inviteLinkInput) {
+      inviteLinkInput.value = getInviteUrl(myRoomCode);
     }
   });
 }
@@ -1749,6 +1798,8 @@ if (tabHost && tabJoin) {
     if (panelJoin) panelJoin.classList.remove('active');
     if (!network.isHost && (!isOnlineMode || !myRoomCode)) {
       startOnlineHost();
+    } else if (inviteLinkInput && myRoomCode) {
+      inviteLinkInput.value = getInviteUrl(myRoomCode);
     }
   });
 
@@ -1761,19 +1812,34 @@ if (tabHost && tabJoin) {
   });
 }
 
+async function handleCopyInviteLink() {
+  sfxClick();
+  const url = getInviteUrl(myRoomCode);
+  if (inviteLinkInput) {
+    inviteLinkInput.value = url;
+    inviteLinkInput.focus();
+    inviteLinkInput.select();
+    inviteLinkInput.setSelectionRange(0, url.length);
+  }
+  await copyTextToClipboard(url);
+  if (copyLinkBtn) {
+    copyLinkBtn.textContent = '✅ Copied!';
+    copyLinkBtn.style.background = '#06d6a0';
+    setTimeout(() => {
+      if (copyLinkBtn) {
+        copyLinkBtn.textContent = '📋 Copy Link';
+        copyLinkBtn.style.background = '';
+      }
+    }, 2000);
+  }
+}
+
 if (copyLinkBtn) {
-  copyLinkBtn.addEventListener('click', () => {
-    sfxClick();
-    const inviteUrl = window.location.origin + window.location.pathname + '?room=' + myRoomCode;
-    navigator.clipboard.writeText(inviteUrl).then(() => {
-      copyLinkBtn.textContent = '✅ Copied Link!';
-      setTimeout(() => {
-        copyLinkBtn.textContent = '📋 Copy Invite Link';
-      }, 2000);
-    }).catch(() => {
-      prompt('Copy this invite link:', inviteUrl);
-    });
-  });
+  copyLinkBtn.addEventListener('click', handleCopyInviteLink);
+}
+
+if (inviteLinkInput) {
+  inviteLinkInput.addEventListener('click', handleCopyInviteLink);
 }
 
 if (joinRoomBtn && joinCodeInput) {

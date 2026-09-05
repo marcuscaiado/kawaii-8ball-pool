@@ -81,9 +81,14 @@
             <span class="code-label">YOUR ROOM CODE</span>
             <span id="host-code-text" class="code-value">----</span>
           </div>
-          <button id="copy-link-btn" class="action-btn btn-primary" style="width: 100%; margin-top: 14px;">
-            📋 Copy Invite Link
-          </button>
+
+          <div class="invite-link-box">
+            <input type="text" id="invite-link-input" class="invite-link-field" readonly placeholder="Generating invite link..." />
+            <button id="copy-link-btn" class="action-btn btn-primary copy-btn-action">
+              📋 Copy Link
+            </button>
+          </div>
+
           <p id="host-status" class="status-msg">🟡 Waiting for Player 2 to connect...</p>
         </div>
 
